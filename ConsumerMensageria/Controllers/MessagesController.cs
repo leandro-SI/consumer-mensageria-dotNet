@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using RabbitMQ.Client;
 using System.Text.Json;
 using System.Text;
+using RabbitMQ.Client.Events;
+using System;
 
 namespace ConsumerMensageria.Controllers
 {
@@ -15,7 +17,7 @@ namespace ConsumerMensageria.Controllers
 
         public MessagesController()
         {
-            _factory = new ConnectionFactory
+            _factory = new ConnectionFactory // Definindo uma conexão com um nó RabbitMQ em localhost
             {
                 HostName = "localhost"
             };
@@ -24,6 +26,8 @@ namespace ConsumerMensageria.Controllers
         [HttpGet]
         public IActionResult GetMessage()
         {
+
+            var msg = "";
 
             using (var connection = _factory.CreateConnection())
             {
@@ -38,10 +42,23 @@ namespace ConsumerMensageria.Controllers
                             arguments: null
                             );
 
+                    var consumer = new EventingBasicConsumer(channel);
+
+                    consumer.Received += (sender, args) =>
+                    {
+                        var body = args.Body.ToArray();
+                        var message = Encoding.UTF8.GetString(body);
+                        msg = message;
+
+                        Console.WriteLine($" [x] Recebida: {message}");
+                    };
+
+                    channel.BasicConsume(queue: QUEUE_NAME, autoAck: true, consumer: consumer);
+
                 }
             }
 
-            return Accepted();
+            return Ok(msg);
         }
 
     }
